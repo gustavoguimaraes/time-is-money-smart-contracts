@@ -177,5 +177,45 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
                 guestBalanceBeforeRefund
             );
         });
+
+        it('later guest gets less the earlier one', async () => {
+
+            const guestBalanceBeforeTransactionBuyer = await web3.eth.getBalance(buyer);
+            const guestBalanceBeforeTransactionBuyer2 = await web3.eth.getBalance(buyer2);
+         
+            const difference = guestBalanceBeforeTransactionBuyer.sub(guestBalanceBeforeTransactionBuyer2);
+
+            guestBalanceBeforeTransactionBuyer2.add(difference).should.be.bignumber.equal(
+                guestBalanceBeforeTransactionBuyer
+            );
+            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.sendTransaction({ value: 1e18, from: buyer2 });
+
+            const guestBalanceBeforeRefundBuyer = await web3.eth.getBalance(buyer);
+            const guestBalanceBeforeRefundBuyer2 = await web3.eth.getBalance(buyer2);
+            guestBalanceBeforeRefundBuyer2.add(difference).should.be.bignumber.equal(
+                guestBalanceBeforeRefundBuyer
+            );
+
+
+            startTime = latestTime() + duration.days(1);
+            endTime = startTime + duration.hours(2);
+
+            await increaseTimeTo(latestTime() + duration.days(1) + duration.minutes(30));
+
+            await tm.claimTicketReimbursement(buyer, { from: host });
+
+            const guestBalanceAfterRefundBuyer = await web3.eth.getBalance(buyer);
+    
+            await increaseTimeTo(latestTime() + duration.minutes(60));
+
+            await tm.claimTicketReimbursement(buyer2, { from: host });
+
+            const guestBalanceAfterRefundBuyer2 = await web3.eth.getBalance(buyer2);
+            
+            guestBalanceAfterRefundBuyer2.add(difference).should.be.bignumber.lessThan(guestBalanceAfterRefundBuyer);
+
+
+        });
     });
 });
