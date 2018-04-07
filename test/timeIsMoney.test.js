@@ -1,5 +1,5 @@
 const TimeIsMoney = artifacts.require('./TimeIsMoney.sol');
-
+var Web3Utils = require('web3-utils');
 const { should, ensuresException } = require('./helpers/utils');
 const expect = require('chai').expect;
 const { latestTime, duration, increaseTimeTo } = require('./helpers/timer');
@@ -7,6 +7,10 @@ const { latestTime, duration, increaseTimeTo } = require('./helpers/timer');
 contract('TimeIsMoney', ([host, buyer, buyer2]) => {
     const ticketPrice = 1e18;
     let tm, startTime, endTime;
+    const seed1 = 12345;
+    const seed2 = 56789;
+    const hashOfSeed1 = Web3Utils.soliditySha3(seed1);
+    const hashOfSeed2 = Web3Utils.soliditySha3(seed2);
 
     beforeEach(async () => {
         startTime = latestTime() + duration.days(1);
@@ -46,7 +50,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
     describe('buys tickets', () => {
         it('allows ticket purchases only with the exact amount', async () => {
             try {
-                await tm.sendTransaction({ value: 2e18, from: buyer });
+                await tm.buyTicket(hashOfSeed1, { value: 2e18, from: buyer });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -55,7 +59,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             const checkBuyerTicketPurchase = await tm.boughtTicket.call(buyer);
             checkBuyerTicketPurchase.should.be.false;
 
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
             const checkAgainBuyerTicketPurchase = await tm.boughtTicket.call(
                 buyer
@@ -64,10 +68,10 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
         });
 
         it('cannot buy more than one ticket', async () => {
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
             try {
-                await tm.sendTransaction({ value: 1e18, from: buyer });
+                await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -81,7 +85,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             await increaseTimeTo(latestTime() + duration.days(1));
 
             try {
-                await tm.sendTransaction({ value: 1e18, from: buyer });
+                await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -93,7 +97,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
     });
     describe('retrieve funds', () => {
         it('allows only host to call function', async () => {
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
             await increaseTimeTo(latestTime() + duration.days(2));
             try {
                 await tm.retrieveFunds({ from: buyer });
@@ -112,7 +116,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
         });
 
         it('host cannot retrieve funds before end time', async () => {
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
             try {
                 await tm.retrieveFunds({ from: host });
                 assert.fail();
@@ -133,10 +137,10 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
 
     describe('guest reimbursement', () => {
         it('only host can mark guest as arrived', async () => {
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
             try {
-                await tm.claimTicketReimbursement(buyer, { from: buyer });
+                await tm.claimTicketReimbursement(buyer, seed1, { from: buyer });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -145,7 +149,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             let checkBuyerHasTicket = await tm.boughtTicket.call(buyer);
             checkBuyerHasTicket.should.be.true;
 
-            await tm.claimTicketReimbursement(buyer, { from: host });
+            await tm.claimTicketReimbursement(buyer, seed1, { from: host });
 
             checkBuyerHasTicket = await tm.boughtTicket.call(buyer);
             checkBuyerHasTicket.should.be.false;
@@ -153,9 +157,9 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
 
         it('guest arrives before event and gets full refund', async () => {
             let guestInitialBalance = await web3.eth.getBalance(buyer);
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
-            await tm.claimTicketReimbursement(buyer, { from: host });
+            await tm.claimTicketReimbursement(buyer, seed1, { from: host });
 
             const guestBalance = await web3.eth.getBalance(buyer);
             guestBalance
@@ -165,11 +169,11 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
 
         it('guest can claim refund only once', async () => {
             let guestInitialBalance = await web3.eth.getBalance(buyer);
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 ;
-            await tm.claimTicketReimbursement(buyer, { from: host });
+            await tm.claimTicketReimbursement(buyer, seed1, { from: host });
             try {
-                await tm.claimTicketReimbursement(buyer, { from: host });
+                await tm.claimTicketReimbursement(buyer, seed1, { from: host });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -177,13 +181,13 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
         });
 
         it('guest arrives after event and gets no refund', async () => {
-            await tm.sendTransaction({ value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
             const guestBalanceBeforeRefund = await web3.eth.getBalance(buyer);
 
             await increaseTimeTo(latestTime() + duration.days(2));
 
-            await tm.claimTicketReimbursement(buyer, { from: host });
+            await tm.claimTicketReimbursement(buyer, seed1, { from: host });
 
             const guestBalanceAfterRefund = await web3.eth.getBalance(buyer);
             guestBalanceAfterRefund.should.be.bignumber.equal(
@@ -191,38 +195,37 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             );
         });
 
-        it('later guest gets less the earlier one', async () => {
+        it.only('later guest gets less the earlier one', async () => {
 
             const guestBalanceBeforeTransactionBuyer = await web3.eth.getBalance(buyer);
             const guestBalanceBeforeTransactionBuyer2 = await web3.eth.getBalance(buyer2);
-         
+   
             const difference = guestBalanceBeforeTransactionBuyer.sub(guestBalanceBeforeTransactionBuyer2);
 
             guestBalanceBeforeTransactionBuyer2.add(difference).should.be.bignumber.equal(
                 guestBalanceBeforeTransactionBuyer
             );
-            await tm.sendTransaction({ value: 1e18, from: buyer });
-            await tm.sendTransaction({ value: 1e18, from: buyer2 });
+            await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
+            await tm.buyTicket(hashOfSeed2, { value: 1e18, from: buyer2 });
 
             const guestBalanceBeforeRefundBuyer = await web3.eth.getBalance(buyer);
             const guestBalanceBeforeRefundBuyer2 = await web3.eth.getBalance(buyer2);
-            guestBalanceBeforeRefundBuyer2.add(difference).should.be.bignumber.equal(
-                guestBalanceBeforeRefundBuyer
+            guestBalanceBeforeRefundBuyer2.add(difference).toNumber().should.be.bignumber.closeTo(
+                guestBalanceBeforeRefundBuyer.toNumber(), 1e13
             );
-
 
             startTime = latestTime() + duration.days(1);
             endTime = startTime + duration.hours(2);
 
             await increaseTimeTo(latestTime() + duration.days(1) + duration.minutes(30));
 
-            await tm.claimTicketReimbursement(buyer, { from: host });
+            await tm.claimTicketReimbursement(buyer, seed1, { from: host });
 
             const guestBalanceAfterRefundBuyer = await web3.eth.getBalance(buyer);
     
             await increaseTimeTo(latestTime() + duration.minutes(60));
 
-            await tm.claimTicketReimbursement(buyer2, { from: host });
+            await tm.claimTicketReimbursement(buyer2, seed2, { from: host });
 
             const guestBalanceAfterRefundBuyer2 = await web3.eth.getBalance(buyer2);
             
