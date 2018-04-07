@@ -6,6 +6,7 @@ import "./SafeMath.sol";
 contract TimeIsMoney {
     using SafeMath for uint256;
     mapping (address => bool) public boughtTicket;
+    mapping (address => bytes32) public userSeedHash;
 
     address public host;
     uint256 public ticketPrice;
@@ -31,10 +32,6 @@ contract TimeIsMoney {
             endTime = _endTime;
         }
 
-    function() external payable {
-        buyTicket();
-    }
-
     function retrieveFunds() external {
         require(host == msg.sender);
         require(now > endTime);
@@ -42,16 +39,18 @@ contract TimeIsMoney {
         host.transfer(address(this).balance);
     }
 
-    function buyTicket() public payable {
+    function buyTicket(bytes32 seedHash) public payable {
         require(msg.value == ticketPrice && now < startTime);
         require(!boughtTicket[msg.sender]);
 
         boughtTicket[msg.sender] = true;
+        userSeedHash[msg.sender] = seedHash;
     }
 
-    function claimTicketReimbursement(address guest) public {
+    function claimTicketReimbursement(address guest, uint256 seed) public {
         require(host == msg.sender);
         require(boughtTicket[guest]);
+        require(userSeedHash[guest] == keccak256(seed));
 
         boughtTicket[guest] = false;
         uint256 reimbursement = calculateReturnMoney(now);
