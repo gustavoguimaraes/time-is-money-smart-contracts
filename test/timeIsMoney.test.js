@@ -34,7 +34,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             contractStartTime.should.be.bignumber.below(contractEndTime);
         });
 
-        it('has a endTime and it should be bigger than the startTime', async () => {
+        it('has an endTime and it should be bigger than the startTime', async () => {
             const contractEndTime = await tm.endTime();
             const contractStartTime = await tm.startTime();
 
@@ -131,7 +131,7 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
         });
     });
 
-    describe('guest reimbursment', () => {
+    describe('guest reimbursement', () => {
         it('only host can mark guest as arrived', async () => {
             await tm.sendTransaction({ value: 1e18, from: buyer });
 
@@ -161,6 +161,19 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             guestBalance
                 .toNumber()
                 .should.be.closeTo(guestInitialBalance.toNumber(), 1e16);
+        });
+
+        it('guest can claim refund only once', async () => {
+            let guestInitialBalance = await web3.eth.getBalance(buyer);
+            await tm.sendTransaction({ value: 1e18, from: buyer });
+;
+            await tm.claimTicketReimbursement(buyer, { from: host });
+            try {
+                await tm.claimTicketReimbursement(buyer, { from: host });
+                assert.fail();
+            } catch (error) {
+                ensuresException(error);
+            }
         });
 
         it('guest arrives after event and gets no refund', async () => {
