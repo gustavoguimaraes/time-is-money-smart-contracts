@@ -140,7 +140,9 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
 
             try {
-                await tm.claimTicketReimbursement(buyer, seed1, { from: buyer });
+                await tm.claimTicketReimbursement(buyer, seed1, {
+                    from: buyer
+                });
                 assert.fail();
             } catch (error) {
                 ensuresException(error);
@@ -170,7 +172,6 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
         it('guest can claim refund only once', async () => {
             let guestInitialBalance = await web3.eth.getBalance(buyer);
             await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
-;
             await tm.claimTicketReimbursement(buyer, seed1, { from: host });
             try {
                 await tm.claimTicketReimbursement(buyer, seed1, { from: host });
@@ -195,43 +196,62 @@ contract('TimeIsMoney', ([host, buyer, buyer2]) => {
             );
         });
 
-        it.only('later guest gets less the earlier one', async () => {
-
-            const guestBalanceBeforeTransactionBuyer = await web3.eth.getBalance(buyer);
-            const guestBalanceBeforeTransactionBuyer2 = await web3.eth.getBalance(buyer2);
-   
-            const difference = guestBalanceBeforeTransactionBuyer.sub(guestBalanceBeforeTransactionBuyer2);
-
-            guestBalanceBeforeTransactionBuyer2.add(difference).should.be.bignumber.equal(
-                guestBalanceBeforeTransactionBuyer
+        it('later guest gets less the earlier one', async () => {
+            const guestBalanceBeforeTransactionBuyer = await web3.eth.getBalance(
+                buyer
             );
+            const guestBalanceBeforeTransactionBuyer2 = await web3.eth.getBalance(
+                buyer2
+            );
+
+            const difference = guestBalanceBeforeTransactionBuyer.sub(
+                guestBalanceBeforeTransactionBuyer2
+            );
+
+            guestBalanceBeforeTransactionBuyer2
+                .add(difference)
+                .should.be.bignumber.equal(guestBalanceBeforeTransactionBuyer);
             await tm.buyTicket(hashOfSeed1, { value: 1e18, from: buyer });
             await tm.buyTicket(hashOfSeed2, { value: 1e18, from: buyer2 });
 
-            const guestBalanceBeforeRefundBuyer = await web3.eth.getBalance(buyer);
-            const guestBalanceBeforeRefundBuyer2 = await web3.eth.getBalance(buyer2);
-            guestBalanceBeforeRefundBuyer2.add(difference).toNumber().should.be.bignumber.closeTo(
-                guestBalanceBeforeRefundBuyer.toNumber(), 1e13
+            const guestBalanceBeforeRefundBuyer = await web3.eth.getBalance(
+                buyer
             );
+            const guestBalanceBeforeRefundBuyer2 = await web3.eth.getBalance(
+                buyer2
+            );
+            guestBalanceBeforeRefundBuyer2
+                .add(difference)
+                .toNumber()
+                .should.be.bignumber.closeTo(
+                    guestBalanceBeforeRefundBuyer.toNumber(),
+                    1e13
+                );
 
             startTime = latestTime() + duration.days(1);
             endTime = startTime + duration.hours(2);
 
-            await increaseTimeTo(latestTime() + duration.days(1) + duration.minutes(30));
+            await increaseTimeTo(
+                latestTime() + duration.days(1) + duration.minutes(30)
+            );
 
             await tm.claimTicketReimbursement(buyer, seed1, { from: host });
 
-            const guestBalanceAfterRefundBuyer = await web3.eth.getBalance(buyer);
-    
+            const guestBalanceAfterRefundBuyer = await web3.eth.getBalance(
+                buyer
+            );
+
             await increaseTimeTo(latestTime() + duration.minutes(60));
 
             await tm.claimTicketReimbursement(buyer2, seed2, { from: host });
 
-            const guestBalanceAfterRefundBuyer2 = await web3.eth.getBalance(buyer2);
-            
-            guestBalanceAfterRefundBuyer2.add(difference).should.be.bignumber.lessThan(guestBalanceAfterRefundBuyer);
+            const guestBalanceAfterRefundBuyer2 = await web3.eth.getBalance(
+                buyer2
+            );
 
-
+            guestBalanceAfterRefundBuyer2
+                .add(difference)
+                .should.be.bignumber.lessThan(guestBalanceAfterRefundBuyer);
         });
     });
 });
