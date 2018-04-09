@@ -66,8 +66,8 @@ contract TimeIsMoney {
             return 0;
         }
 
-        uint256 totalDuration = endTime.sub(startTime);  
-        uint256 currentDuration = _currentTime.sub(startTime); 
-        return ticketPrice.sub( ticketPrice.mul(currentDuration).div(totalDuration));
+        uint256 totalDuration = endTime.sub(startTime);
+        uint256 currentDuration = _currentTime.sub(startTime);
+        return ticketPrice.sub(ticketPrice.mul(currentDuration).div(totalDuration));
     }
 }
